@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>National Grid Live Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .tabs button {
+      background: #222;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      cursor: pointer;
+      margin: 0 10px;
+      border-radius: 5px;
+    }
+    .tabs button.active {
+      background: #444;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .card {
+      background: #222;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    canvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>National Grid: Live Trends</h1>
+  <div class="tabs">
+    <button class="tab-button active" onclick="changeRange('week')">Past Week</button>
+    <button class="tab-button" onclick="changeRange('month')">Past Month</button>
+    <button class="tab-button" onclick="changeRange('all')">All Time</button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Price per MWh</h3>
+      <canvas id="priceChart"></canvas>
+    </div>
+    <div class="card">
+      <h3>Demand</h3>
+      <canvas id="demandChart"></canvas>
+    </div>
+    <div class="card">
+      <h3>Emissions per kWh</h3>
+      <canvas id="emissionChart"></canvas>
+    </div>
+    <div class="card">
+      <h3>Transfers</h3>
+      <canvas id="transferChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const charts = {
+      price: null,
+      demand: null,
+      emission: null,
+      transfer: null,
+    };
+
+    const colors = {
+      price: "#00c896",
+      demand: "#f39c12",
+      emission: "#e74c3c",
+      transfer: "#3498db",
+    };
+
+    async function fetchData(metric) {
+      const res = await fetch(`http://localhost:3001/api/${metric}`);
+      const raw = await res.json();
+      return raw.map(item => ({
+        time: item.settlement_date || item.timestamp || item.date || 'N/A',
+        value: parseFloat(item.value || item.price || item.demand || item.transfer || item.intensity) || 0
+      })).reverse();
+    }
+
+    async function renderChart(metric, chartId, label) {
+      const data = await fetchData(metric);
+      const ctx = document.getElementById(chartId);
+      charts[metric] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.map(d => d.time),
+          datasets: [{
+            label,
+            data: data.map(d => d.value),
+            borderColor: colors[metric],
+            backgroundColor: colors[metric] + '33',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { ticks: { color: '#ccc' } },
+            y: { ticks: { color: '#ccc' } }
+          },
+          plugins: { legend: { labels: { color: '#fff' } } }
+        }
+      });
+    }
+
+    async function initCharts() {
+      await renderChart("price", "priceChart", "Price (£/MWh)");
+      await renderChart("demand", "demandChart", "Demand (GW)");
+      await renderChart("emission", "emissionChart", "Emissions (g/kWh)");
+      await renderChart("transfer", "transferChart", "Transfers (GW)");
+    }
+
+    function changeRange(range) {
+      document.querySelectorAll(".tab-button").forEach((btn) => btn.classList.remove("active"));
+      event.target.classList.add("active");
+      // Placeholder for future range filter logic
+    }
+
+    initCharts();
+  </script>
+</body>
+</html>
