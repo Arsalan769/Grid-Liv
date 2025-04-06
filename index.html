@@ -2,36 +2,34 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>National Grid Live Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>National Grid Dashboard Clone</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      background: #111;
-      color: white;
-      font-family: Arial, sans-serif;
-      margin: 0;
+      background-color: #111;
+      color: #fff;
+      font-family: sans-serif;
       padding: 20px;
     }
     h1 {
       text-align: center;
     }
     .tabs {
-      display: flex;
-      justify-content: center;
+      text-align: center;
       margin-bottom: 20px;
     }
     .tabs button {
-      background: #222;
-      border: none;
-      color: white;
-      padding: 10px 20px;
-      cursor: pointer;
       margin: 0 10px;
+      padding: 10px 20px;
+      background: #222;
+      color: #fff;
+      border: none;
       border-radius: 5px;
+      cursor: pointer;
     }
     .tabs button.active {
-      background: #444;
+      background: #555;
     }
     .grid {
       display: grid;
@@ -40,8 +38,8 @@
     }
     .card {
       background: #222;
-      padding: 20px;
       border-radius: 10px;
+      padding: 20px;
     }
     canvas {
       width: 100% !important;
@@ -50,100 +48,88 @@
   </style>
 </head>
 <body>
-  <h1>National Grid: Live Trends</h1>
+  <h1>National Grid Real-Time Dashboard</h1>
   <div class="tabs">
-    <button class="tab-button active" onclick="changeRange('week')">Past Week</button>
-    <button class="tab-button" onclick="changeRange('month')">Past Month</button>
-    <button class="tab-button" onclick="changeRange('all')">All Time</button>
+    <button class="tab active" onclick="changeRange('week')">Past Week</button>
+    <button class="tab" onclick="changeRange('month')">Past Month</button>
+    <button class="tab" onclick="changeRange('all')">All Time</button>
   </div>
 
   <div class="grid">
     <div class="card">
-      <h3>Price per MWh</h3>
+      <h3>Price per MWh (Bitcoin)</h3>
       <canvas id="priceChart"></canvas>
     </div>
     <div class="card">
-      <h3>Demand</h3>
+      <h3>Demand (Temperature)</h3>
       <canvas id="demandChart"></canvas>
     </div>
     <div class="card">
-      <h3>Emissions per kWh</h3>
+      <h3>Emissions per kWh (Air Quality)</h3>
       <canvas id="emissionChart"></canvas>
     </div>
     <div class="card">
-      <h3>Transfers</h3>
+      <h3>Transfers (Simulated)</h3>
       <canvas id="transferChart"></canvas>
     </div>
   </div>
 
   <script>
-    const charts = {
-      price: null,
-      demand: null,
-      emission: null,
-      transfer: null,
-    };
+    const backendUrl = "https://argrid.glitch.me/api";
+    const charts = {};
 
-    const colors = {
-      price: "#00c896",
-      demand: "#f39c12",
-      emission: "#e74c3c",
-      transfer: "#3498db",
-    };
+    const metrics = [
+      { id: "priceChart", key: "price", label: "Bitcoin Price (USD)", color: "#00c896" },
+      { id: "demandChart", key: "demand", label: "Temperature (°C)", color: "#f39c12" },
+      { id: "emissionChart", key: "emission", label: "Air Quality (PM2.5)", color: "#e74c3c" },
+      { id: "transferChart", key: "transfer", label: "Transfers (GW)", color: "#3498db" }
+    ];
 
     async function fetchData(metric) {
-      const res = await fetch(`http://localhost:3001/api/${metric}`);
-      const raw = await res.json();
-      return raw.map(item => ({
-        time: item.settlement_date || item.timestamp || item.date || 'N/A',
-        value: parseFloat(item.value || item.price || item.demand || item.transfer || item.intensity) || 0
-      })).reverse();
+      const res = await fetch(`${backendUrl}/${metric}`);
+      const json = await res.json();
+      return json.map(d => ({
+        time: d.time || d.timestamp || d.date || 'N/A',
+        value: d.value || d.price || d.demand || d.transfer || d.intensity || 0
+      }));
     }
 
-    async function renderChart(metric, chartId, label) {
-      const data = await fetchData(metric);
-      const ctx = document.getElementById(chartId);
-      charts[metric] = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: data.map(d => d.time),
-          datasets: [{
-            label,
-            data: data.map(d => d.value),
-            borderColor: colors[metric],
-            backgroundColor: colors[metric] + '33',
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            x: { ticks: { color: '#ccc' } },
-            y: { ticks: { color: '#ccc' } }
+    async function renderCharts() {
+      for (const m of metrics) {
+        const data = await fetchData(m.key);
+        const ctx = document.getElementById(m.id).getContext('2d');
+        charts[m.key] = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: data.map(d => d.time),
+            datasets: [{
+              label: m.label,
+              data: data.map(d => d.value),
+              borderColor: m.color,
+              backgroundColor: m.color + '33',
+              fill: true,
+              tension: 0.3
+            }]
           },
-          plugins: { legend: { labels: { color: '#fff' } } }
-        }
-      });
-    }
-
-    async function initCharts() {
-      await renderChart("price", "priceChart", "Price (£/MWh)");
-      await renderChart("demand", "demandChart", "Demand (GW)");
-      await renderChart("emission", "emissionChart", "Emissions (g/kWh)");
-      await renderChart("transfer", "transferChart", "Transfers (GW)");
+          options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: "#fff" } } },
+            scales: {
+              x: { ticks: { color: "#ccc" } },
+              y: { ticks: { color: "#ccc" } }
+            }
+          }
+        });
+      }
     }
 
     function changeRange(range) {
-      document.querySelectorAll(".tab-button").forEach((btn) => btn.classList.remove("active"));
+      document.querySelectorAll(".tab").forEach(btn => btn.classList.remove("active"));
       event.target.classList.add("active");
-      // Placeholder for future range filter logic
+      // Optional: trigger re-fetch for different range
     }
 
-
-    initCharts();
-    const res = await fetch(`https://argrid.glitch.me/api/${metric}`);
-
+    renderCharts();
   </script>
 </body>
 </html>
